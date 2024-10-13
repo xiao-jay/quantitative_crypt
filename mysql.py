@@ -1,5 +1,6 @@
 
 import configparser
+import logging
 from datetime import datetime
 
 from sqlalchemy import create_engine, Column, String, Float, Date, Integer, DATETIME, inspect
@@ -37,7 +38,8 @@ def create_table():
     inspector = inspect(engine)
     if 'crypto_rates' not in inspector.get_table_names():
         Base.metadata.create_all(engine)
-        print("Table created successfully.")
+        logging.info("Table created successfully.")
+
 
 
 def insert_crypto_rate(engine, coin_name, interest_rate):
@@ -60,11 +62,11 @@ def insert_crypto_rate(engine, coin_name, interest_rate):
             new_rate = CryptoRate(date=current_time, coin_name=coin_name, interest_rate=interest_rate)
             session.add(new_rate)
             session.commit()
-            print(f'Inserted: {new_rate.coin_name}')
+            logging.info(f'Inserted: {new_rate.coin_name}')
         else:
-            print('Data already exists, no insertion performed.')
+            logging.info('Data already exists, no insertion performed.')
     except Exception as e:
-        print(f'An error occurred: {e}')
+        logging.info(f'An error occurred: {e}')
         session.rollback()  # 回滚事务
     finally:
         session.close()  # 确保关闭会话

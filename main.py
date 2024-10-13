@@ -12,6 +12,7 @@ def job():
 
 if __name__ == '__main__':
     # 每 4 小时执行一次 job
+
     schedule.every(4).hours.do(job)
 
     while True:

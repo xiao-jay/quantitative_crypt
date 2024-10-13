@@ -1,3 +1,5 @@
+import logging
+
 import requests
 
 url = "https://www.okx.com/priapi/v1/earn/simple-earn/all-products?type=all&t=1728808412672"
@@ -161,13 +163,13 @@ def get_okx_earning_list() -> [EarningsData]:
             earnings_data = parse_earnings_data(currencie)
             earnings_datas.append(earnings_data)
     else:
-        print(f"请求失败，状态码: {response.status_code}")
+        logging.info(f"请求失败，状态码: {response.status_code}")
     return earnings_datas
 
 
 def get_okx_top_earnings(top_n=10)-> [EarningsData]:
-    earnings_datas = get_okx_earning()
+    earnings_datas = get_okx_earning_list()
     top_earnings = get_top_earnings(earnings_datas, top_n)
     for earnings in top_earnings:
-        print(f"投资货币: {earnings.invest_currency.currency_name}, 利率: {earnings.products[0].rate.value[0]}")
+        logging.info(f"投资货币: {earnings.invest_currency.currency_name}, 利率: {earnings.products[0].rate.value[0]}")
     return top_earnings
