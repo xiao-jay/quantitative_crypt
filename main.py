@@ -1,7 +1,11 @@
+import logging
+
 import mysql
 import okx
 import schedule
 import time
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def job():
     engine = mysql.get_mysql_engine()
@@ -12,7 +16,7 @@ def job():
 
 if __name__ == '__main__':
     # 每 4 小时执行一次 job
-
+    logging.info("start main")
     schedule.every(4).hours.do(job)
 
     while True:
