@@ -1,10 +1,12 @@
+import json
 import logging
 from datetime import datetime
 import requests
 
+import exchange_interface
 import mysql
 import utils
-from exchange_interface import Exchange
+from exchange_interface import Exchange, PigeonPayload
 
 url = "https://www.okx.com/priapi/v1/earn/simple-earn/all-products?type=all&t=1728808412672"
 
@@ -165,7 +167,7 @@ class OKX(Exchange):
         if response.status_code == 200:
             json_data = response.json()
             for currencie in json_data["data"]["allProducts"]["currencies"]:
-                earnings_data = self.parse_earnings_data(currencie)
+                earnings_data = EarningsData.parse_earnings_data(currencie)
                 earnings_datas.append(earnings_data)
         else:
             logging.info(f"请求失败，状态码: {response.status_code}")
@@ -191,11 +193,34 @@ class OKX(Exchange):
         cryptoRate_list = list()
         for earning in earning_list:
             cryptoRate = mysql.CryptoRate()
-            cryptoRate.interest_rate = earning.products[0].rate.value[0]
+            cryptoRate.interest_rate = float(earning.products[0].rate.value[0])
             cryptoRate.coin_name = earning.invest_currency.currency_name
             cryptoRate.exchange_name = self.get_exchange_name()
             cryptoRate.date = datetime.now().replace(minute=0, second=0, microsecond=0)
             cryptoRate_list.append(cryptoRate)
         return cryptoRate_list
 
+    def get_piegon_msg(self) -> PigeonPayload:
+        # 筛选出利率大于100的币种
+        filtered_rates = []
+        # 构建要发送的 JSON 数据
+        crypto_rate_data_list = self.get_crypto_rate_data()
+        for crypto_rate_data in crypto_rate_data_list:
+            if crypto_rate_data.interest_rate > 100 and crypto_rate_data.coin_name != "USDT":
+                filtered_rates.append({
+                    "name": crypto_rate_data.coin_name,
+                    "interest_rate": crypto_rate_data.interest_rate
+                })
+        if len(filtered_rates ) == 0:
+            logging.info("no need to feishu")
+            return None
+        piegon_payload = exchange_interface.PigeonPayload(f"{self.get_exchange_name()} 币存储利率",
+                                                          json.dumps(filtered_rates), "feishu")
+        return piegon_payload
 
+
+if __name__ == '__main__':
+    # Convert and serialize the JSON data
+    okx = OKX()
+
+    okx.send_msg_to_piegon()

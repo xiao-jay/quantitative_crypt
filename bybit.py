@@ -1,9 +1,9 @@
-
 import logging
 from datetime import datetime
 
 import requests
 
+import exchange_interface
 import mysql
 import utils
 from exchange_interface import Exchange
@@ -80,6 +80,24 @@ class Bybit(Exchange):
             cryptoRate_list.append(cryptoRate)
         return cryptoRate_list
 
+    def get_piegon_msg(self):
+        # 筛选出利率大于100的币种
+        filtered_rates = []
+        # 构建要发送的 JSON 数据
+        crypto_rate_data_list = self.get_crypto_rate_data()
+        for crypto_rate_data in crypto_rate_data_list:
+            if crypto_rate_data.interest_rate > 100 and crypto_rate_data.coin_name != "USDT":
+                filtered_rates.append({
+                    "name": crypto_rate_data.coin_name,
+                    "interest_rate": crypto_rate_data.interest_rate
+                })
+        if len(filtered_rates ) == 0:
+            logging.info("no need to feishu")
+            return None
+        piegon_payload = exchange_interface.PigeonPayload(f"{self.get_exchange_name()} 币存储利率",
+                                                          json.dumps(filtered_rates), "feishu")
+        return piegon_payload
+
 
 @dataclass
 class ProductTagInfo:
@@ -137,7 +155,7 @@ class Response:
 
 
 # Function to convert the JSON data into structured data
-def convert_json_to_structure(json_data)-> Response:
+def convert_json_to_structure(json_data) -> Response:
     # Convert each product tag info and saving product into structured data
     coin_products = []
     for coin_product in json_data['result']['coin_products']:
@@ -217,7 +235,8 @@ def get_bybit_coin_data():
 
     except Exception as e:
         print(f"发生错误: {e}")
-        return  None
+        return None
+
 
 def insert_bybit_coin_data():
     from dataclasses import dataclass
@@ -269,16 +288,10 @@ def insert_bybit_coin_data():
             # 插入到数据库
             mysql.Mysql_Engine().insert_bybit_coin(bybitCoin)
 
+
 if __name__ == '__main__':
     # Convert and serialize the JSON data
     bybit = Bybit()
-    # structured_data = convert_json_to_structure(json_data)
-    # for i in structured_data.result.coin_products:
-    #     print(i.coin,i.apy)
 
-    bybit.insert_data()
+    bybit.send_msg_to_piegon()
     # print(structured_data.result.coin_products[1].coin,structured_data.result.coin_products[1].apy)
-
-
-
-    # print(serialized_json)
