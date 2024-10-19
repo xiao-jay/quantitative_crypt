@@ -1,5 +1,5 @@
 import logging
-
+import bybit
 import mysql
 import okx
 import schedule
@@ -7,9 +7,15 @@ import time
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 def job():
     okx1 = okx.OKX()
     okx1.insert_data()
+
+
+def job2():
+    bit = bybit.Bybit()
+    bit.insert_data()
 
 
 if __name__ == '__main__':
