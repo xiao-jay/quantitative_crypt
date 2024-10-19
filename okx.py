@@ -157,6 +157,7 @@ class OKX(Exchange):
     def get_exchange_name(self) -> str:
         return self.exchange_name
 
+    @utils.retry(max_retries=3, delay=5)
     def get_okx_earning_list(self) -> [EarningsData]:
         response = requests.get(url, headers=headers)
         earnings_datas = []
@@ -173,9 +174,9 @@ class OKX(Exchange):
     def get_okx_top_earnings(self, top_n=10) -> [EarningsData]:
         earnings_datas = self.get_okx_earning_list()
         top_earnings = self.get_top_earnings(earnings_datas, top_n)
-        for earnings in top_earnings:
-            logging.info(
-                f"投资货币: {earnings.invest_currency.currency_name}, 利率: {earnings.products[0].rate.value[0]}")
+        # for earnings in top_earnings:
+        #     logging.info(
+        #         f"投资货币: {earnings.invest_currency.currency_name}, 利率: {earnings.products[0].rate.value[0]}")
         return top_earnings
 
     def get_top_earnings(self, earnings_list, top_n=10):
@@ -186,7 +187,7 @@ class OKX(Exchange):
 
     @utils.retry(max_retries=3, delay=5)
     def get_crypto_rate_data(self) -> list[mysql.CryptoRate]:
-        earning_list = self.get_okx_earning_list()
+        earning_list = self.get_okx_top_earnings()
         cryptoRate_list = list()
         for earning in earning_list:
             cryptoRate = mysql.CryptoRate()
