@@ -1,6 +1,10 @@
 import logging
-
+from datetime import datetime
 import requests
+
+import mysql
+import utils
+from exchange_interface import Exchange
 
 url = "https://www.okx.com/priapi/v1/earn/simple-earn/all-products?type=all&t=1728808412672"
 
@@ -26,8 +30,6 @@ headers = {
     "X-Utc": "8"
 }
 
-import requests
-
 
 class Currency:
     def __init__(self, currency_icon, currency_id, currency_name):
@@ -35,11 +37,26 @@ class Currency:
         self.currency_id = currency_id
         self.currency_name = currency_name
 
+    @staticmethod
+    def parse_currency(data):
+        return Currency(
+            currency_icon=data['currencyIcon'],
+            currency_id=data['currencyId'],
+            currency_name=data['currencyName']
+        )
+
 
 class Rate:
     def __init__(self, value, rate_type):
         self.value = value
         self.rate_type = rate_type
+
+    @staticmethod
+    def parse_rate(data):
+        return Rate(
+            value=data['rateNum']['value'],
+            rate_type=data['rateType']
+        )
 
 
 class Term:
@@ -48,6 +65,15 @@ class Term:
         self.show = show
         self.term_type = term_type
         self.value = value
+
+    @staticmethod
+    def parse_term(data):
+        return Term(
+            labels=data['labels'],
+            show=data['show'],
+            term_type=data['type'],
+            value=data['value']
+        )
 
 
 class Product:
@@ -68,6 +94,24 @@ class Product:
         self.term = term
         self.type = product_type
 
+    @staticmethod
+    def parse_product(data):
+        return Product(
+            activity_period_end_date=data.get('activityPeriodEndDate'),
+            bonus_currency=data.get('bonusCurrency'),
+            campaign_uid=data.get('campaignUid', ''),
+            interest_currency=Currency.parse_currency(data['interestCurrency']),
+            is_learn_and_earn=data['isLearnAndEarn'],
+            labels=data['labels'],
+            lock_up_period=data['lockUpPeriod'],
+            products_type=data['productsType'],
+            purchase_status=data['purchaseStatus'],
+            rate=Rate.parse_rate(data['rate']),
+            saving_type=data['savingType'],
+            term=Term.parse_term(data['term']),
+            product_type=data['type']
+        )
+
 
 class EarningsData:
     def __init__(self, balance, invest_currency, labels, product_eng_name,
@@ -86,90 +130,71 @@ class EarningsData:
         self.type = data_type
         self.valuation_usd = valuation_usd
 
-
-def parse_currency(data):
-    return Currency(
-        currency_icon=data['currencyIcon'],
-        currency_id=data['currencyId'],
-        currency_name=data['currencyName']
-    )
-
-
-def parse_rate(data):
-    return Rate(
-        value=data['rateNum']['value'],
-        rate_type=data['rateType']
-    )
-
-
-def parse_term(data):
-    return Term(
-        labels=data['labels'],
-        show=data['show'],
-        term_type=data['type'],
-        value=data['value']
-    )
+    @staticmethod
+    def parse_earnings_data(data):
+        return EarningsData(
+            balance=data['balance'],
+            invest_currency=Currency.parse_currency(data['investCurrency']),
+            labels=data['labels'],
+            product_eng_name=data['productEngName'],
+            products=[Product.parse_product(product) for product in data['products']],
+            products_type=data['productsType'],
+            rate=Rate.parse_rate(data['rate']),
+            redirect_url=data['redirectUrl'],
+            saving_type=data['savingType'],
+            term=Term.parse_term(data['term']),
+            data_type=data['type'],
+            valuation_usd=data['valuationUSD']
+        )
 
 
-def parse_product(data):
-    return Product(
-        activity_period_end_date=data.get('activityPeriodEndDate'),
-        bonus_currency=data.get('bonusCurrency'),
-        campaign_uid=data.get('campaignUid', ''),
-        interest_currency=parse_currency(data['interestCurrency']),
-        is_learn_and_earn=data['isLearnAndEarn'],
-        labels=data['labels'],
-        lock_up_period=data['lockUpPeriod'],
-        products_type=data['productsType'],
-        purchase_status=data['purchaseStatus'],
-        rate=parse_rate(data['rate']),
-        saving_type=data['savingType'],
-        term=parse_term(data['term']),
-        product_type=data['type']
-    )
+class OKX(Exchange):
+    def __init__(self):
+        super().__init__()
+        self.mysql = mysql.Mysql_Engine()
+        self.exchange_name = "OKX"
+
+    def get_exchange_name(self) -> str:
+        return self.exchange_name
+
+    def get_okx_earning_list(self) -> [EarningsData]:
+        response = requests.get(url, headers=headers)
+        earnings_datas = []
+        # 解析 JSON 数据
+        if response.status_code == 200:
+            json_data = response.json()
+            for currencie in json_data["data"]["allProducts"]["currencies"]:
+                earnings_data = self.parse_earnings_data(currencie)
+                earnings_datas.append(earnings_data)
+        else:
+            logging.info(f"请求失败，状态码: {response.status_code}")
+        return earnings_datas
+
+    def get_okx_top_earnings(self, top_n=10) -> [EarningsData]:
+        earnings_datas = self.get_okx_earning_list()
+        top_earnings = self.get_top_earnings(earnings_datas, top_n)
+        for earnings in top_earnings:
+            logging.info(
+                f"投资货币: {earnings.invest_currency.currency_name}, 利率: {earnings.products[0].rate.value[0]}")
+        return top_earnings
+
+    def get_top_earnings(self, earnings_list, top_n=10):
+        # 按照每个 earnings_data 的 valuation_usd 排序
+        sorted_earnings = sorted(earnings_list, key=lambda e: float(e.products[0].rate.value[0]), reverse=True)
+        # 返回前 top_n 个
+        return sorted_earnings[:top_n]
+
+    @utils.retry(max_retries=3, delay=5)
+    def get_crypto_rate_data(self) -> list[mysql.CryptoRate]:
+        earning_list = self.get_okx_earning_list()
+        cryptoRate_list = list()
+        for earning in earning_list:
+            cryptoRate = mysql.CryptoRate()
+            cryptoRate.interest_rate = earning.products[0].rate.value[0]
+            cryptoRate.coin_name = earning.invest_currency.currency_name
+            cryptoRate.exchange_name = self.get_exchange_name()
+            cryptoRate.date = datetime.now().replace(minute=0, second=0, microsecond=0)
+            cryptoRate_list.append(cryptoRate)
+        return cryptoRate_list
 
 
-def parse_earnings_data(data):
-    return EarningsData(
-        balance=data['balance'],
-        invest_currency=parse_currency(data['investCurrency']),
-        labels=data['labels'],
-        product_eng_name=data['productEngName'],
-        products=[parse_product(product) for product in data['products']],
-        products_type=data['productsType'],
-        rate=parse_rate(data['rate']),
-        redirect_url=data['redirectUrl'],
-        saving_type=data['savingType'],
-        term=parse_term(data['term']),
-        data_type=data['type'],
-        valuation_usd=data['valuationUSD']
-    )
-
-
-def get_top_earnings(earnings_list, top_n=10):
-    # 按照每个 earnings_data 的 valuation_usd 排序
-    sorted_earnings = sorted(earnings_list, key=lambda e: float(e.products[0].rate.value[0]), reverse=True)
-    # 返回前 top_n 个
-    return sorted_earnings[:top_n]
-
-
-def get_okx_earning_list() -> [EarningsData]:
-    response = requests.get(url, headers=headers)
-    earnings_datas = []
-    # 解析 JSON 数据
-    if response.status_code == 200:
-        json_data = response.json()
-        for currencie in json_data["data"]["allProducts"]["currencies"]:
-            earnings_data = parse_earnings_data(currencie)
-            earnings_datas.append(earnings_data)
-    else:
-        logging.info(f"请求失败，状态码: {response.status_code}")
-    return earnings_datas
-
-
-def get_okx_top_earnings(top_n=10)-> [EarningsData]:
-    earnings_datas = get_okx_earning_list()
-    top_earnings = get_top_earnings(earnings_datas, top_n)
-    for earnings in top_earnings:
-        logging.info(f"投资货币: {earnings.invest_currency.currency_name}, 利率: {earnings.products[0].rate.value[0]}")
-    return top_earnings
