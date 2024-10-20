@@ -211,11 +211,12 @@ class OKX(Exchange):
                     "name": crypto_rate_data.coin_name,
                     "interest_rate": crypto_rate_data.interest_rate
                 })
-        if len(filtered_rates ) == 0:
+        if len(filtered_rates) == 0:
             logging.info("no need to feishu")
             return None
-        piegon_payload = exchange_interface.PigeonPayload(f"{self.get_exchange_name()} 币存储利率",
-                                                          json.dumps(filtered_rates), "feishu")
+        piegon_payload = exchange_interface.PigeonPayload(
+            f"{self.get_exchange_name()}交易所" + self.get_str_rates(filtered_rates),
+            json.dumps(filtered_rates), "feishu")
         return piegon_payload
 
 

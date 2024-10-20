@@ -17,10 +17,11 @@ class PigeonPayload:
 
     def get_payload(self):
         return {
-            "title":self.title,
+            "title": self.title,
             "message": self.message,
             "channelType": self.channelType
         }
+
 
 class Exchange(ABC):
     def __init__(self):
@@ -67,11 +68,17 @@ class Exchange(ABC):
 
             # 检查响应状态码
             if response.status_code == 200:
-                print("请求成功！")
-                print("响应内容:", response.json())  # 如果响应是 JSON 格式
+                logging.info("请求成功！")
+                logging.debug("响应内容:%s", response.json())
             else:
-                print("请求失败！状态码:", response.status_code)
-                print("响应内容:", response.text)
+                logging.error("请求失败！状态码:%s", response.status_code)
+                logging.debug("响应内容:%s", response.text)
 
         except requests.exceptions.RequestException as e:
-            print("发生异常:", e)
+            logging.error("发生异常:%s", e)
+
+    def get_str_rates(self, rates: list):
+        result = ""
+        for rate in rates:
+            result += f"{rate['name']}:{rate['interest_rate']},"
+        return result
