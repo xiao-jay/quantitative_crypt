@@ -68,7 +68,6 @@ class Bybit(Exchange):
         response = requests.post(url, headers=headers, data=json.dumps(payload))
 
         # 输出响应结果
-        print("Response JSON:", response.json())
         structured_data = convert_json_to_structure(response.json())
         cryptoRate_list = list()
         for i in structured_data.result.coin_products:
@@ -227,14 +226,12 @@ def get_bybit_coin_data():
             # 解析 JSON 响应
             data = response.json()
             return data
-            print("请求成功，返回数据:")
         else:
-            print(f"请求失败，状态码: {response.status_code}")
+            logging.error(f"请求失败，状态码: {response.status_code}")
             return response.json()
 
-
     except Exception as e:
-        print(f"发生错误: {e}")
+        logging.error(f"发生错误: {e}")
         return None
 
 
