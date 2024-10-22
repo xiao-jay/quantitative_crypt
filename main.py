@@ -23,9 +23,13 @@ def job3():
     okx1 = okx.OKX()
     okx1.send_msg_to_piegon()
 
+
+job_list = [job, job2, job3]
 if __name__ == '__main__':
     # 每 4 小时执行一次 job
     logging.info("start main")
+    for jon in job_list:
+        jon()
     schedule.every(4).hours.do(job)
     schedule.every(4).hours.do(job2)
     schedule.every(1).hours.do(job3)

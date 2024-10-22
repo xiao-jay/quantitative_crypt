@@ -65,11 +65,11 @@ class Bybit(Exchange):
     @utils.retry(max_retries=3, delay=5)
     def get_crypto_rate_data(self) -> list[mysql.CryptoRate]:
         # 发送 POST 请求
+        cryptoRate_list = list()
         response = requests.post(url, headers=headers, data=json.dumps(payload))
 
         # 输出响应结果
         structured_data = convert_json_to_structure(response.json())
-        cryptoRate_list = list()
         for i in structured_data.result.coin_products:
             cryptoRate = mysql.CryptoRate()
             cryptoRate.interest_rate = float(i.apy.strip('%'))
