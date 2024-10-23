@@ -25,7 +25,6 @@ class PigeonPayload:
 
 class Exchange(ABC):
     def __init__(self):
-        self.enginx = mysql.get_mysql_engine()
         self.mysql = mysql.Mysql_Engine()
         self.pigeon = self.get_piegon_config()
 

@@ -62,7 +62,7 @@ class Bybit(Exchange):
         """获取交易所名字"""
         return self.exchange_name
 
-    @utils.retry(max_retries=3, delay=5)
+    @utils.retry()
     def get_crypto_rate_data(self) -> list[mysql.CryptoRate]:
         # 发送 POST 请求
         cryptoRate_list = list()
@@ -77,6 +77,7 @@ class Bybit(Exchange):
             cryptoRate.coin_name = self.mysql.get_coin_name_by_id(i.coin)
             cryptoRate.date = datetime.now().replace(minute=0, second=0, microsecond=0)
             cryptoRate_list.append(cryptoRate)
+
         return cryptoRate_list
 
     def get_piegon_msg(self):
@@ -84,6 +85,7 @@ class Bybit(Exchange):
         filtered_rates = []
         # 构建要发送的 JSON 数据
         crypto_rate_data_list = self.get_crypto_rate_data()
+        if not crypto_rate_data_list: crypto_rate_data_list = list()
         for crypto_rate_data in crypto_rate_data_list:
             if crypto_rate_data.interest_rate > 100 and crypto_rate_data.coin_name != "USDT":
                 filtered_rates.append({

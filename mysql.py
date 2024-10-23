@@ -3,7 +3,7 @@ import logging
 
 import mysql
 
-from sqlalchemy import create_engine, Column, String, Float,  Integer, DATETIME, inspect
+from sqlalchemy import create_engine, Column, String, Float, Integer, DATETIME, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -34,6 +34,7 @@ class CryptoRate(Base):
     interest_rate = Column(Float, nullable=False)
     exchange_name = Column(String(255), nullable=True)
 
+
 # 定义 BybitCoin 类
 class BybitCoin(Base):
     __tablename__ = 'bybit_coin'
@@ -41,6 +42,7 @@ class BybitCoin(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     coin_name = Column(String(100), nullable=False)
     coin_id = Column(String(100), nullable=False)
+
 
 class Mysql_Engine():
     def __init__(self):
@@ -88,6 +90,7 @@ class Mysql_Engine():
         Session = sessionmaker(bind=self.engine)
         session = Session()
         coin = session.query(BybitCoin).filter(BybitCoin.coin_id == coin_id).first()
+        session.close()
         return coin.coin_name if coin else None
 
     def insert_bybit_coin(self, bybitCoin: BybitCoin) -> None:
